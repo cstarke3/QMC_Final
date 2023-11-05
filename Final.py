@@ -1,6 +1,7 @@
 import numpy as np
 import matplotlib as plt
 import scipy
+import scipy.constants as const
 
 class QMC: #I'm sure I am missing stuff on referencing inside the class and whatnot, but the structure should be right
 
@@ -8,23 +9,25 @@ class QMC: #I'm sure I am missing stuff on referencing inside the class and what
         self.V = V # potential function
         self.particles = particles # number of particles
         self.steps = steps # number of monte carlo steps to take
-        self.replicas = replicas
-        self.Energy = Energy
-        self.total_counts = total_counts
+        self.replicas = dict()
+        self.Energy = []
+        self.total_counts = 0
         self.hbar = const.hbar
         self.delta_t = 0.1
+        self.N_0 = 500
         
 
     def initialize(self, particles):
         N_max = 2000
         N_0 = 500
-        self.replicas = dict()
+        partial_Energy = []
+        count = self.N_0
         for i in range(self.particles): # Create replica arrays assigned to individual particles
             self.replicas[i] = np.zeros((2, N_max))
             self.replicas[i][1,0:N_0] = 1
         
         for i in range(self.particles): # Finds the Energy from Eq, 2.32 and 2.33
-            partial_Energy[i] = Average_Potential(i, count)
+            partial_Energy[i] = self.Average_Potential(i, count)
         
         self.Energy[0] = np.sum(partial_Energy)
 
@@ -37,7 +40,7 @@ class QMC: #I'm sure I am missing stuff on referencing inside the class and what
     
     def Sort(self, i): # Sorts live replicas to the front of the array
         for k in range(count): #sets dead replicas postions to 0
-            if self.replica[i][1,k] == 0
+            if self.replica[i][1,k] == 0:
                 self.replica[i][0,k] = 0
         self.replica = np.sort(self.replica[i], reverse = True) #sorts in descending order to group live replicas to the front of the array
 
@@ -46,7 +49,7 @@ class QMC: #I'm sure I am missing stuff on referencing inside the class and what
         count = sum(self.replicas[i][1,:])
 
     def Walk(self, i): #Walks every replica associated with particle i according to Eq. 2.30
-        for k in range(count)
+        for k in range(count):
             self.replica[i][0,k] = self.replica[i][0,k] + np.sqrt(self.hbar*delta_t/mass)*np.random.randn()
 
     def Branch(self, i): #conducts the branching of the replicas
@@ -69,7 +72,7 @@ class QMC: #I'm sure I am missing stuff on referencing inside the class and what
                 index += 2          
     
     def Energy_Step(self, i): #finds the next energy value based on the previous energy value
-        self.Energy[i] = self.Energy[i-1] +(self.hbar/self.delta_t)*(1-(self.total_count[i]/self.total_count[i-1])
+        self.Energy[i] = self.Energy[i-1] +(self.hbar/self.delta_t)*(1-(self.total_count[i]/self.total_count[i-1]))
 
     def Test(self, i): #only run this if i is greater than a set number, 10 maybe?
         flag = 0
@@ -82,17 +85,14 @@ class QMC: #I'm sure I am missing stuff on referencing inside the class and what
         return flag
         
     def Ground_State_Energy(self, V, particles, steps):
-        initialize(particles)
+        self.initialize(particles)
         flag = 0
         if flag == 0:
             for t in range(steps):
-                Walk(t)
-                Branch(t)
-                Count(t)
-                Sort(t)
-                Energy_Step(t)
-                flag = Test(t)
+                self.Walk(t)
+                self.Branch(t)
+                self.Count(t)
+                self.Sort(t)
+                self.Energy_Step(t)
+                self.flag = Test(t)
         return self.Energy[-1]
-
-
-        
