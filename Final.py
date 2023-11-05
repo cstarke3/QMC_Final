@@ -41,8 +41,26 @@ class QMC: #I'm sure I am missing stuff on referencing inside the class and what
 
     def Walk(self, i): #Walks every replica associated with particle i according to Eq. 2.30
         for k in range(count)
-            self.replica[i][0,k] = self.replica[i][0,k] + np.sqrt(hbar*delta_t/mass)*np.randn()
+            self.replica[i][0,k] = self.replica[i][0,k] + np.sqrt(hbar*delta_t/mass)*np.random.randn()
 
-    def Branch(self, ): #conducts the branching of the replicas
+    def Branch(self, k): #conducts the branching of the replicas
+        for k in range(count):
+            index = 1
+            W = 1 - ((self.V(self.replicas[k][0,k]) - E_r)/hbar)*delta_t
+            W = int(W + np.random.uniform())
+            m = min(W, 3)
+            if m == 0:
+               self.replicas[i][1, k] = 0
+            elif m == 2:
+                self.replicas[i][1, count+index] = 1
+                self.replicas[i][0, count+index] = self.replicas[i][0,k]
+                index += 1
+            elif m == 3:
+                self.replicas[i][1, count+index] = 1
+                self.replicas[i][0, count+index] = self.replicas[i][0,k]
+                self.replicas[i][1, count+index+1] = 1
+                self.replicas[i][0, count+index+1] = self.replicas[i][0,k]
+                index += 2
+                
     
     def Energy_Step(self, ): #finds the next energy value based on the previous energy value
