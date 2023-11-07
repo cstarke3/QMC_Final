@@ -4,9 +4,19 @@ This project...
 
 ## setup
 
-from a terminal (assuming a mac)
-% python -m venv qmc
-% qmc/Scripts/activate
+From a terminal
 
-% pip install -r requirements.txt
+`python -m venv qmc`
+
+## on a mac
+
+`source qmc/bin/activate`
+
+## on a windows machine
+
+`qmc\Scripts\activate`
+
+## install all the things
+
+`pip install -r requirements.txt`
 
