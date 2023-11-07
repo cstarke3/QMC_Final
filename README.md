@@ -9,3 +9,4 @@ from a terminal (assuming a mac)
 % qmc/Scripts/activate
 
 % pip install -r requirements.txt
+
