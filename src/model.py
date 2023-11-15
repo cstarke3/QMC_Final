@@ -3,7 +3,7 @@ import scipy.constants as const
 
 class QMC: #I'm sure I am missing stuff on referencing inside the class and whatnot, but the structure should be right
 
-    def __init__(self, V, particles, steps, dim=1, min_replicas=500, max_replicas=2000, max_steps=1000, delta_t=0.1, xmin=-20, xmax=20, bins=200):
+    def __init__(self, V, particles, dim=1, min_replicas=500, max_replicas=2000, max_steps=1000, delta_t=0.1, xmin=-20, xmax=20, bins=200):
         self._V = V # potential function V(x) associated with the specific quantum system we are modeling
         self._dim = dim # number of dimensions (D=1 for this exercise)
         self._min_replicas = min_replicas # minimum number of replicas
@@ -15,10 +15,9 @@ class QMC: #I'm sure I am missing stuff on referencing inside the class and what
         self._xmax = xmax # maximum value of the spatial coordinate (xmax = 20)
         self._bins = bins # number of spatial bins for sorting the replicas during their sampling
         self.mass = 1
-        self.hbar = const.hbar
+        self.hbar = 1 #changed to one
 
         self.particles = particles # number of particles
-        self.steps = steps # number of monte carlo steps to take
         self.replicas = dict()
         self.Energy = []
         self.total_count = [min_replicas]
@@ -52,13 +51,26 @@ class QMC: #I'm sure I am missing stuff on referencing inside the class and what
         for k in range(int(self.count[i])): #sets dead replicas postions to 0
             if self.replicas[i][1,k] == 0:
                 self.replicas[i][0,k] = 0
-        self.replicas[i] = np.sort(self.replicas[i])[::-1] #sorts in descending order to group live replicas to the front of the array
+
+        transposed_array = list(zip(*self.replicas[i]))
+        def custom_sort(item):
+          return item[1]
+
+        sorted_transposed_array = sorted(transposed_array, key=custom_sort)
+        dummy_array = list(zip(*sorted_transposed_array))
+        final_array = [dummy_array[0][::-1], dummy_array[1][::-1]]
+
+        for k in range(self._max_replicas):
+          self.replicas[i][0,k] = final_array[0][k]
+          self.replicas[i][1,k] = final_array[1][k]#sorts in descending order to group live replicas to the front of the array
+
 
     def Count_func(self): #Counts the number of alive particles in the replica set associated with a particular particle
         for k in range(self.particles):
           self.count[k] = sum(self.replicas[k][1,:])
 
         self.total_count.append(np.sum(self.count))
+
 
     def Walk(self, i): #Walks every replica associated with particle i according to Eq. 2.30
         for k in range(int(self.count[i])):
@@ -67,7 +79,7 @@ class QMC: #I'm sure I am missing stuff on referencing inside the class and what
     def Branch(self, i): #conducts the branching of the replicas
         for k in range(int(self.count[i])):
             index = 1
-            W = 1 - ((self._V(self.replicas[i][0,k]) - self.Average_Potential(i))/self.hbar)*self._delta_t
+            W = np.absolute(1 - ((self._V(self.replicas[i][0,k]) - self.Average_Potential(i))/self.hbar)*self._delta_t)
             W = int(W + np.random.uniform())
             m = min(W, 3)
             if m == 0:
@@ -102,11 +114,12 @@ class QMC: #I'm sure I am missing stuff on referencing inside the class and what
         if flag == 0:
             for t in range(1, self._max_steps):
               for k in range(self.particles):
+                if t > 10:
+                  flag = self.Test(k)
+                self.Sort(k)
                 self.Walk(k)
                 self.Branch(k)
                 self.Count_func()
-                self.Sort(k)
-                self.Energy_Step(t)
-                if t > 10:
-                  flag = self.Test(k)
-        return self.Energy[-1]
+              self.Energy_Step(t)
+
+        return self.Energy[-1], self.Energy
