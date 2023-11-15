@@ -63,37 +63,45 @@ class QMC: #I'm sure I am missing stuff on referencing inside the class and what
         for k in range(self._max_replicas):
           self.replicas[i][0,k] = final_array[0][k]
           self.replicas[i][1,k] = final_array[1][k]#sorts in descending order to group live replicas to the front of the array
-
+        
 
     def Count_func(self): #Counts the number of alive particles in the replica set associated with a particular particle
         for k in range(self.particles):
           self.count[k] = sum(self.replicas[k][1,:])
 
+        print(self.count)
         self.total_count.append(np.sum(self.count))
-
 
     def Walk(self, i): #Walks every replica associated with particle i according to Eq. 2.30
         for k in range(int(self.count[i])):
             self.replicas[i][0,k] = self.replicas[i][0,k] + np.sqrt(self.hbar*self._delta_t/self.mass)*np.random.randn()
 
     def Branch(self, i): #conducts the branching of the replicas
+        Zed = 0
+        Two = 0
+        Three = 0
+        index = 1
         for k in range(int(self.count[i])):
-            index = 1
             W = np.absolute(1 - ((self._V(self.replicas[i][0,k]) - self.Average_Potential(i))/self.hbar)*self._delta_t)
             W = int(W + np.random.uniform())
             m = min(W, 3)
             if m == 0:
                self.replicas[i][1, k] = 0
+               Zed += 1
             elif m == 2:
                 self.replicas[i][1, int(self.count[i]+index)] = 1
                 self.replicas[i][0, int(self.count[i]+index)] = self.replicas[i][0,k]
                 index += 1
+                Two += 1
             elif m == 3:
                 self.replicas[i][1, int(self.count[i]+index)] = 1
                 self.replicas[i][0, int(self.count[i]+index)] = self.replicas[i][0,k]
                 self.replicas[i][1, int(self.count[i]+index+1)] = 1
                 self.replicas[i][0, int(self.count[i]+index+1)] = self.replicas[i][0,k]
                 index += 2
+                Three += 1
+        print(Zed, Two, Three)
+        print(Two - Zed)
 
     def Energy_Step(self, i): #finds the next energy value based on the previous energy value
         self.Energy.append(self.Energy[i-1] + (self.hbar/self._delta_t)*(1-(self.total_count[i]/self.total_count[i-1])))
@@ -117,9 +125,9 @@ class QMC: #I'm sure I am missing stuff on referencing inside the class and what
                 if t > 10:
                   flag = self.Test(k)
                 self.Sort(k)
+                self.Count_func()
                 self.Walk(k)
                 self.Branch(k)
-                self.Count_func()
               self.Energy_Step(t)
 
         return self.Energy[-1], self.Energy
