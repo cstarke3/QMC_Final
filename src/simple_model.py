@@ -117,7 +117,7 @@ class QMC(BaseModel):
         
         for replica in self.replicas[:self.N]:
             xs_array = replica[1:]  # Exclude the first alive/dead element
-            W = np.exp(-dtau_over_hbar * (self.replica_tot_pot(xs_array) - self.E_ref)) # eqn 3.5
+            W = np.exp(-dtau_over_hbar * (self.replica_tot_pot(xs_array) - self.E_ref)) # eqn 2.16
             m_n = min(int(W+np.random.uniform()), 3)
             if m_n == 0:  # Kill the replica
                 replica[0] = False
