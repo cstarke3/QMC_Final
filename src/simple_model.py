@@ -19,7 +19,7 @@ class QMC(BaseModel):
     bins: int = 200                # number of spatial bins for sorting the replicas (only used during 'Counting' to plot the ground state wave function)
     seed: int = 42                 # seed value for the random number generators (for repeatability)
     mass: float = 1                # mass of the particle (m = 1)
-    E_ref: float = 0               # reference energy (E_ref = 0)
+    E_ref: float = None            # reference energy (E_ref = 0)
        
     replicas: Optional[List[List[Union[bool, float]]]] = None
     N: int = 500                   # the count of ALIVE replicas; initially equal to min_replicas
@@ -27,17 +27,20 @@ class QMC(BaseModel):
 
     def initialize(self):
         """ Initialize the simulation based on the input values. """
-
-        print(f"Initializing simulation with {self.n_part} particles.")
-        xs_array = [0.0 for _ in range(self.n_part-1)]
-        print(f"xs_array: {xs_array}")
-        self.replicas = [[True] + xs_array for _ in range(self.min_replicas)]
-        for ii,replica in enumerate(self.replicas):
-            print(f"replica[{ii}]: {replica}")
         np.random.seed(seed=self.seed)
+
+        # print(f"Initializing simulation with {self.n_part} particles.")
+        xs_array = [0.0 for _ in range(self.n_part-1)]
+
+        # sets the first min_replicas to be alive, the rest are dead
+        self.replicas = [[True] + xs_array if i < self.min_replicas else [False] + xs_array for i in range(self.max_replicas)]
+        # making sure that our initial count is equal to the minimum number of replicas
+        self.N = self.min_replicas
+        self.N_prev = self.min_replicas
+            
         # The initial value of the reference energy E_ref is the potential energy at the initial position of the replicas.
-        self.E_ref = self.Average_Potential()
-        print(f"Initial E_ref: {self.E_ref}")
+        self.Calculate_E_ref()
+        # print(f"Initial E_ref: {self.E_ref}")
     
     def replica_tot_pot(self, xs):
         """ Calculates the total potential energy of the system for a replica."""
@@ -69,7 +72,7 @@ class QMC(BaseModel):
         self.N_prev = self.N    # Save the previous count
         self.N = sum([1 for replica in self.replicas if replica[0]])
         
-    def Average_Potential(self):
+    def Calculate_E_ref(self):
         """ 
         Calulates the average potential across all alive replicas.
         ASSUMES that the replicas array has been sorted.
@@ -83,13 +86,14 @@ class QMC(BaseModel):
         if self.N == 0 or self.N is None:
             raise ValueError("No alive replicas found")
 
-        for replica in self.replicas[:self.N]:
-            xs_array = replica[1:]  # Exclude the first alive/dead element
-            tot_pot_sum += self.replica_tot_pot(xs_array)
+        if self.E_ref is None: # accordinag to eqn 2.36, E_ref depends only on the number of alive replicas between steps
+            for replica in self.replicas[:self.N]:
+                xs_array = replica[1:]  # Exclude the first alive/dead element
+                tot_pot_sum += self.replica_tot_pot(xs_array)
 
-        avg_pot = tot_pot_sum / self.N
-        
-        self.E_ref = avg_pot
+            self.E_ref = tot_pot_sum / self.N
+        else:
+            self.E_ref += (hbar / self.delta_tau) * (1 - self.N / self.N_prev)
 
     def Walk(self):
         """ 
@@ -107,6 +111,13 @@ class QMC(BaseModel):
         for ii,replica in enumerate(self.replicas):
             print(f"replica[{ii}]: {replica}")
                 
+    def clone_replica(self, replica):
+        """
+        Clones the replica into the slots of the first dead replica found.
+
+        Args:
+            replica (_type_): _description_
+        """
     def Branch(self):
         """ 
         This is the Birth/Death decision branch for each replica. 
@@ -118,15 +129,44 @@ class QMC(BaseModel):
         # m = min(W, 3)
         # NOTE: this is a guess, but we're trying to decide whether or not to kill a replica
         # based on its potential energy relative to the reference energy
-        prefactor = self.delta_tau/self.hbar
+        prefactor = self.delta_tau/hbar
         
         for replica in self.replicas[:self.N]:
             xs_array = replica[1:]  # Exclude the first alive/dead element
-            tot_pot_sum += self.replica_tot_pot(xs_array)
             W = np.exp(-prefactor*(self.replica_tot_pot(xs_array) - self.E_ref))
             m_n = min(int(W+np.random.uniform()), 3)
+            if m_n == 0:  # Kill the replica
+                replica[0] = False
+            else:  # For m_n == 2 or 3, replicate the current replica
+                count_copies = m_n - 1  # Number of copies to make
+                for ii, target_replica in enumerate(self.replicas):
+                    if count_copies == 0:
+                        break
+                    if not target_replica[0]:  # If the target replica is dead
+                        self.replicas[ii] = list(replica)  # Make a copy
+                        count_copies -= 1
 
-        pass
+
+    def find_centroid(xs_array):
+        """
+        Find the centroid of the collectionn of particles based on the relative offsets contained in the xs_array
+ 
+        Args:
+            xs_array (array/list): the relative offsets of the particles in the system referenced from the last particle
+
+        Returns:
+            _type_: _description_
+        """
+        n = len(xs_array) + 1  # Total number of particles
+        positions = [0.0] * n  # Initialize positions, assuming last particle is at the origin
+
+        # Calculate positions of other particles relative to the last particle
+        for i in range(n - 1):
+            positions[i] = -xs_array[i]  # Assuming last particle is at 0.0
+
+        # Calculate centroid
+        centroid = sum(positions) / n
+        return centroid
         
     def Binning(self):
         """ 
@@ -139,10 +179,9 @@ class QMC(BaseModel):
     
     def step(self):
         """ Steps the simulation forward 1 delta-t step and returns <V> and N. """
+        self.Walk()
+        self.Calculate_E_ref()
+        self.Branch()
         self.Sort()
         self.CountAliveReplicas()
-        self.Walk()
-        self.Average_Potential()
-        self.print_replicas()
-        self.Branch()
-        return self.E_ref, self.N, self.N_prev
+        # nothing is returned, but class variables have been updated
