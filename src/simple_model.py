@@ -13,7 +13,7 @@ class QMC(BaseModel):
     min_replicas: int = 500        # minimum number of replicas
     max_replicas: int = 2000       # maximum number of replicas
     max_steps: int = 1000          # maximum number of time steps to run the simulation (τ0 = 1000)
-    delta_tau: float = 0.1           # time step size (Δτ = 0.1)
+    delta_tau: float = 0.1         # time step size (Δτ = 0.1)
     xmin: float = -20              # minimum value of the spatial coordinate (xmin = −20)
     xmax: float = 20               # maximum value of the spatial coordinate (xmax = 20)
     bins: int = 200                # number of spatial bins for sorting the replicas (only used during 'Counting' to plot the ground state wave function)
