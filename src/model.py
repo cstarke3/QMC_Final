@@ -1,26 +1,27 @@
 import numpy as np
 import scipy.constants as const
+from pydantic import BaseModel
 
-class QMC: #I'm sure I am missing stuff on referencing inside the class and whatnot, but the structure should be right
-    def __init__(self, V, particles, dim=1, min_replicas=500, max_replicas=2000, max_steps=1000, delta_t=0.1, xmin=-20, xmax=20, bins=200):
-        self._V = V # potential function V(x) associated with the specific quantum system we are modeling
-        self._dim = dim # number of dimensions (D=1 for this exercise)
-        self._min_replicas = min_replicas # minimum number of replicas
-        self._max_replicas = max_replicas # maximum number of replicas
-        #self._seed = seed # seed value for the random number generator
-        self._max_steps = max_steps # maximum number of time steps to run the simulation (τ0 = 1000)
-        self._delta_t = delta_t # time step size (Δτ = 0.1)
-        self._xmin = xmin # minimum value of the spatial coordinate (xmin = −20)
-        self._xmax = xmax # maximum value of the spatial coordinate (xmax = 20)
-        self._bins = bins # number of spatial bins for sorting the replicas during their sampling
-        self.mass = 1
-        self.hbar = 1 #changed to one
+hbar = 1
 
-        self.particles = particles # number of particles
-        self.replicas = dict()
-        self.Energy = []
-        self.total_count = [min_replicas*particles]
-        self.count = np.zeros(self.particles)
+class QMC(BaseModel):
+    V: float               # potential function V(x) associated with the specific quantum system we are modeling
+    particles: int         # number of particles to simulate
+    dim: int = 1           # number of dimensions (D=1 for this exercise)
+    min_replicas: int = 500 # minimum number of replicas
+    max_replicas: int = 2000 # maximum number of replicas
+    max_steps: int = 1000 # maximum number of time steps to run the simulation (τ0 = 1000)
+    delta_t: float = 0.1 # time step size (Δτ = 0.1)
+    xmin: float = -20 # minimum value of the spatial coordinate (xmin = −20)
+    xmax: float = 20 # maximum value of the spatial coordinate (xmax = 20)
+    bins: int = 200 # number of spatial bins for sorting the replicas (only used during 'Counting' to plot the ground state wave function)
+    seed: int = 42 # seed value for the random number generators (for repeatability)
+    mass: float = 1 # mass of the particle (m = 1)
+
+    self.replicas = dict()
+    self.Energy = []
+    self.total_count = [min_replicas*particles]
+    self.count = np.zeros(particles)
 
     def initialize(self, particles):
         """ Initialize the simulation. """
