@@ -6,6 +6,8 @@ from view import plot_data, mean
 from utils.potential import V_Gauss
 import argparse
 import sys
+import time
+
 
 # globals (yeah, I know)
 particles = 2          # number of particles to simulate
@@ -28,11 +30,9 @@ DEBUG = False
 def run_simulation():
     V_0 = -4.0
     R = 2.0
-    qmc = QMC() # create a QMC object, all default values apply
-    qmc.V = V_Gauss(sys, V_0, R)
-    qmc.min_replicas = min_replicas
-    qmc.n_part = particles
-    qmc.initialize() # initialize the simulation
+    V = V_Gauss(sys, V_0, R)
+    qmc = QMC(V=V,min_replicas=min_replicas, n_part=particles, bins=bins, seed=seed) 
+
     E_refs = []
     eyes = range(max_steps)
     for i in eyes:
@@ -63,8 +63,9 @@ parser.add_argument('-m', '--min_replicas', help=f'the minimum number of replica
 parser.add_argument('-x', '--max_replicas', help=f'the maximum number of replicas to use during the simulation (default: {max_replicas}))')
 parser.add_argument('-s', '--steps',  help=f'the number of timesteps to use during the simulation (default: {max_steps})))')
 
-parser.add_argument('-l', '--xmin', help=f'the left-most boundary on the x-axis (default: {xmin})))')
-parser.add_argument('-r', '--xmax', help=f'the right-most boundary on the x-axis (default: {xmax}))))')
+parser.add_argument('-r', '--random', help=f'set the random seed value (default: {seed}))))')
+parser.add_argument('-t', '--trandom', action='store_true', help='set the random seed based on the current timestamp (default: varies))))')
+
 parser.add_argument('-b', '--bins', help=f'the number of spatial “boxes” (nb) for sorting the replicas during their sampling (default: {bins}))')
 parser.add_argument('-p', '--plot_it', action='store_true', help=f'plot the data (default: {plot_it}))')
 parser.add_argument('-d', '--debug', action='store_true', help=f'plot the data (default: {DEBUG}))')
@@ -93,6 +94,13 @@ if __name__ == "__main__":
     if args.debug is not None:
         # print (f"args.debug: {args.debug}")
         DEBUG = bool(args.debug)
+        
+    if args.random is not None:
+        # print (f"args.random: {args.random}")
+        seed = int(args.random)
+    if args.trandom:
+        seed = int(time.time())
+        # print (f"trandom seed: {seed}")
         
     run_simulation()
     

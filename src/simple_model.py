@@ -7,12 +7,11 @@ hbar = 1
 
 
 class QMC(BaseModel):
-    V: Optional[Callable[[float], float]] = None     # potential function V(x) associated with the specific quantum system we are modeling
+    V: Callable[[float], float] = None     # potential function V(x) associated with the specific quantum system we are modeling
     n_part: int = 2                # number of particles to simulate
     dim: int = 1                   # number of dimensions (number of spatial dimensions = 1 x number of particles)
     min_replicas: int = 500        # minimum number of replicas
     max_replicas: int = 2000       # maximum number of replicas
-    max_steps: int = 1000          # maximum number of time steps to run the simulation (τ0 = 1000)
     delta_tau: float = 0.1         # time step size (Δτ = 0.1)
     xmin: float = -20              # minimum value of the spatial coordinate (xmin = −20)
     xmax: float = 20               # maximum value of the spatial coordinate (xmax = 20)
@@ -25,8 +24,11 @@ class QMC(BaseModel):
     N: int = 500                   # the count of ALIVE replicas; initially equal to min_replicas
     N_prev: int = 500              # the count of ALIVE replicas from the previous step
 
-    def initialize(self):
-        """ Initialize the simulation based on the input values. """
+    def __init__(self, **data):
+        """ initialize the simulation based on input values (things are implicitly set via the super class __init__)"""
+        super().__init__(**data)  # Call the super class __init__
+
+        if self.V is None: raise ValueError("Potential function V(x) must be provided, dammit")
         np.random.seed(seed=self.seed)
 
         xs_array = [0.0 for _ in range(self.n_part-1)]
@@ -74,9 +76,9 @@ class QMC(BaseModel):
         """ 
         Calulates the average potential across all alive replicas.
         ASSUMES that the replicas array has been sorted.
-        For each replica we calculate the potential energy between all particles in a replica:
-            replicas[i].V_tot = V(x41) + V(x42) + V(x43) + V(x31) + V(x32) + V(x21) 
-        and then take the average of each V_tot across the replicas
+        
+        First calculate the total potential for each replica, 
+           and then find the average potential across all replicas.
         """
         tot_pot_sum = 0.0
         
@@ -101,8 +103,9 @@ class QMC(BaseModel):
         for replica in self.replicas[:self.N]:
             # Iterate over indices and values in xs_array
             for i, x in enumerate(replica[1:]):
-                # Update the value in the replica array
-                replica[i + 1] += prefactor * np.random.randn()  # eqn 3.4
+                # Update the values in the replica array
+                # replica[i + 1] += prefactor * np.random.randn()  # eqn 3.4
+                replica[i + 1] += prefactor * np.random.normal()  # eqn 3.4
 
     def print_replicas(self):
         for ii,replica in enumerate(self.replicas):
