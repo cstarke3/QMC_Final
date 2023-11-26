@@ -18,7 +18,7 @@ max_steps = 1000       # maximum number of time steps to run the simulation (τ0
 delta_t = 0.1          # time step size (Δτ = 0.1)
 xmin = -20             # minimum value of the spatial coordinate (xmin = −20)
 xmax = 20              # maximum value of the spatial coordinate (xmax = 20)
-bins = 200             # number of spatial bins for sorting the replicas (only used during 'Counting' to plot the ground state wave function)
+bins = 100             # number of spatial bins for sorting the replicas (only used during 'Counting' to plot the ground state wave function)
 seed = 42              # seed value for the random number generators (for repeatability)
 mass = 1               # mass of the particle (m = 1)
 E_ref = 0              # reference energy (E_ref = 0)
@@ -35,20 +35,22 @@ def run_simulation():
 
     E_refs = []
     eyes = range(max_steps)
+    epsilon = 0.0000001
     for i in eyes:
         qmc.step() # run the simulation forward one step
-        if DEBUG: print(f"step: {i} E_ref: {qmc.E_ref} N: {qmc.N}")
+        Nratio = abs(1-qmc.N/qmc.N_prev)
+        if DEBUG: print(f"step: {i}  E_ref: {qmc.E_ref:.6f}  N: {qmc.N}  Nratio: {Nratio:.10f}")
         E_refs.append(qmc.E_ref)
+        if i > 100 and Nratio < epsilon: break
 
     E_0 = mean(E_refs)
     print(f"n={qmc.n_part} E_0: {E_0}")
     if plot_it: 
-        plot_data(eyes,E_refs, title = f"QMC Simulation for n={qmc.n_part} max replicas={max_replicas} N={qmc.N}")
-
-    # plot the histogram of the centroid position of the replicas
-    if plot_it:
         hist, centroids = qmc.Binning()
-        plot_histogram(centroids, qmc.bins, title = f"QMC Simulation for n={qmc.n_part} max replicas={max_replicas} N={qmc.N}")    
+        plot_data(E_refs, centroids, bins, title = f"QMC: n={qmc.n_part}  N={qmc.N}")
+
+        
+
 
 parser = argparse.ArgumentParser(
                     prog='qmc_cli.py',

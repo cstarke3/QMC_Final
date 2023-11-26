@@ -80,20 +80,50 @@ class QMC(BaseModel):
         First calculate the total potential for each replica, 
            and then find the average potential across all replicas.
         """
-        tot_pot_sum = 0.0
+        V_tot = 0.0
         
         if self.N == 0 or self.N is None:
             raise ValueError("No alive replicas found")
 
-        if self.E_ref is None: # according to eqn 2.36, after the first calc, E_ref depends only on the number of alive replicas between steps
-            for replica in self.replicas[:self.N]:
-                xs_array = replica[1:]  # Exclude the first alive/dead element
-                tot_pot_sum += self.replica_tot_pot(xs_array)
+        # if self.E_ref is None: # according to eqn 2.36, after the first calc, E_ref depends only on the number of alive replicas between steps
+        #     for replica in self.replicas[:self.N]:
+        #         xs_array = replica[1:]  # Exclude the first alive/dead element
+        #         V_tot += self.replica_tot_pot(xs_array)
 
-            self.E_ref = tot_pot_sum / self.N
-        else:
-            self.E_ref += (hbar / self.delta_tau) * (1 - self.N / self.N_prev)
+        #     self.E_ref = V_tot / self.N
+        # else:
+        #     self.E_ref += (hbar / self.delta_tau) * (1 - self.N / self.N_prev)
 
+        # alpha = (hbar / self.delta_tau)
+        alpha = 0.1
+        for replica in self.replicas[:self.N]:
+            xs_array = replica[1:]  # Exclude the first alive/dead element
+            V_tot += self.replica_tot_pot(xs_array)
+        V_avg = V_tot / self.N
+        self.E_ref = V_avg + alpha * (1 - self.N / self.N_prev)
+
+    def update_relative_distances(xs_array):
+        n_particles = len(xs_array) + 1
+
+        # Update the first n-2 relative distances with Gaussian random changes
+        for i in range(n_particles - 2):
+            xs_array[i] += np.random.normal(0, 1)
+
+        # Deduce the last relative distance
+        xs_array[-1] = -np.sum(xs_array[:-1])
+
+        return xs_array
+
+    def recover_absolute_positions(xs_array):
+        n_particles = len(xs_array) + 1
+        absolute_positions = np.zeros(n_particles)
+
+        # Calculate absolute positions
+        for i in range(1, n_particles):
+            absolute_positions[i] = absolute_positions[i-1] + xs_array[i-1]
+
+        return absolute_positions
+    
     def Walk(self):
         """ 
         This walks the relative positions between the particles for each ALIVE replica. 
@@ -104,7 +134,6 @@ class QMC(BaseModel):
             # Iterate over indices and values in xs_array
             for i, x in enumerate(replica[1:]):
                 # Update the values in the replica array
-                # replica[i + 1] += prefactor * np.random.randn()  # eqn 3.4
                 replica[i + 1] += prefactor * np.random.normal()  # eqn 3.4
 
     def print_replicas(self):
