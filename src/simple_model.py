@@ -134,20 +134,19 @@ class QMC(BaseModel):
                         count_copies -= 1
 
 
-    def centroid(xs_array):
+    def centroid(self, xs_array):
         """
-        Find the centroid of the particles based on the relative offsets contained in the xs_array
+        Calculate the centroid of a system based on relative offsets from the last particle.
+
+        :param xs_array: Relative offsets of all but the last particle from the last particle.
+                        These offsets can be floating point numbers.
+        :return: The centroid of the system as a floating point number.
         """
         n = len(xs_array) + 1  # Total number of particles
-        positions = [0.0] * n  # Initialize positions, assuming last particle is at the origin
+        # Position of the last particle is 0. Positions of other particles are their negative offsets.
+        positions = [-x for x in xs_array] + [0.0]
+        return sum(positions) / n
 
-        # Calculate positions of other particles relative to the last particle
-        for i in range(n - 1):
-            positions[i] = -xs_array[i]  # Assuming last particle is at 0.0
-
-        # Calculate centroid
-        centroid = sum(positions) / n
-        return centroid
         
     def Binning(self):
         """ 
@@ -156,7 +155,14 @@ class QMC(BaseModel):
         
         This is to be done after the system has stabilized. 
         """
-        pass
+        # roll through all of the replicas and calculate the centroid position of each 
+        centroid_array = []
+        for replica in self.replicas[:self.N]:
+            xs_array = replica[1:]
+            centroid_array.append(self.centroid(xs_array))
+            
+        hist_array = np.histogram(centroid_array, bins=self.bins, range=[self.xmin, self.xmax])
+        return hist_array, centroid_array
     
     def step(self):
         """ Steps the simulation forward 1 delta-t step and returns <V> and N. """

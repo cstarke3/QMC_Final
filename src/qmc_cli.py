@@ -2,7 +2,7 @@
 # will handle options passed in from the command line
 
 from simple_model import QMC
-from view import plot_data, mean
+from view import plot_data, mean, plot_histogram
 from utils.potential import V_Gauss
 import argparse
 import sys
@@ -42,8 +42,13 @@ def run_simulation():
 
     E_0 = mean(E_refs)
     print(f"n={qmc.n_part} E_0: {E_0}")
-    if plot_it: plot_data(eyes,E_refs, title = f"QMC Simulation for n={qmc.n_part} steps={max_steps}")
-    
+    if plot_it: 
+        plot_data(eyes,E_refs, title = f"QMC Simulation for n={qmc.n_part} max replicas={max_replicas} N={qmc.N}")
+
+    # plot the histogram of the centroid position of the replicas
+    if plot_it:
+        hist, centroids = qmc.Binning()
+        plot_histogram(centroids, qmc.bins, title = f"QMC Simulation for n={qmc.n_part} max replicas={max_replicas} N={qmc.N}")    
 
 parser = argparse.ArgumentParser(
                     prog='qmc_cli.py',

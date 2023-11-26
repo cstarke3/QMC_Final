@@ -7,7 +7,7 @@ def mean(lst, pct_val = 0.3):
     mean_val = sum(lst[-r:]) / r
     return mean_val
 
-def plot_data(xs,ys, title = "QMC Simulation"):
+def plot_data(xs, ys, title = "QMC Simulation"):
     """ Plots the data. """
     
     mean_val = mean(ys)
@@ -31,3 +31,24 @@ def plot_data(xs,ys, title = "QMC Simulation"):
 
     # Show the plot
     plt.show()    
+    
+def plot_histogram(data, bins, title = "QMC Simulation"):
+    """ Plots the data. """
+    
+    # Create a new figure
+    plt.figure()
+
+    # Plot x vs y
+    plt.hist(data, bins=bins, label="positions")
+
+    # Add title and labels
+    plt.title(title, fontsize=16)
+    plt.xlabel('Centroid Positions')
+    plt.ylabel('Count')
+
+    # Add a legend
+    plt.legend()
+
+    # Show the plot
+    plt.show()
+    
