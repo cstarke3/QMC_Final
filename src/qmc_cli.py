@@ -43,8 +43,9 @@ def run_simulation():
         E_refs.append(qmc.E_ref)
         if i > 100 and Nratio < epsilon: break
 
+    # E_0 = mean(E_refs,pct_val=1.0)
     E_0 = mean(E_refs)
-    print(f"n={qmc.n_part} E_0: {E_0}")
+    print(f"n={qmc.n_part} E_0: {E_0:.6f}")
     if plot_it: 
         hist, centroids = qmc.Binning()
         plot_data(E_refs, centroids, bins, title = f"QMC: n={qmc.n_part}  N={qmc.N}")
@@ -105,6 +106,7 @@ if __name__ == "__main__":
     if args.random is not None:
         # print (f"args.random: {args.random}")
         seed = int(args.random)
+        
     if args.trandom:
         seed = int(time.time())
         # print (f"trandom seed: {seed}")

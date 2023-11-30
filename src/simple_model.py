@@ -5,7 +5,6 @@ from typing import List, Union, Callable, Any, Optional
 
 hbar = 1
 
-
 class QMC(BaseModel):
     V: Callable[[float], float] = None     # potential function V(x) associated with the specific quantum system we are modeling
     n_part: int = 2                # number of particles to simulate
@@ -21,8 +20,10 @@ class QMC(BaseModel):
     E_ref: float = None            # reference energy (E_ref = 0)
        
     replicas: Optional[List[List[Union[bool, float]]]] = None
+    
     N: int = 500                   # the count of ALIVE replicas; initially equal to min_replicas
     N_prev: int = 500              # the count of ALIVE replicas from the previous step
+    alpha: float = 0.1             # Used in our modified E_ref calculation
 
     def __init__(self, **data):
         """ initialize the simulation based on input values (things are implicitly set via the super class __init__)"""
@@ -31,10 +32,13 @@ class QMC(BaseModel):
         if self.V is None: raise ValueError("Potential function V(x) must be provided, dammit")
         np.random.seed(seed=self.seed)
 
+        rep_pos = [0.0] # tracks the position of the last particle for each replica
         xs_array = [0.0 for _ in range(self.n_part-1)]
 
         # sets the first min_replicas to be alive, the rest are dead
-        self.replicas = [[True] + xs_array if i < self.min_replicas else [False] + xs_array for i in range(self.max_replicas)]
+        self.replicas = [[True] + rep_pos + xs_array if i < self.min_replicas else [False] + rep_pos + xs_array for i in range(self.max_replicas)]
+
+        
         # making sure that our initial count is equal to the minimum number of replicas
         self.N = self.min_replicas
         self.N_prev = self.min_replicas
@@ -87,32 +91,20 @@ class QMC(BaseModel):
 
         # if self.E_ref is None: # according to eqn 2.36, after the first calc, E_ref depends only on the number of alive replicas between steps
         #     for replica in self.replicas[:self.N]:
-        #         xs_array = replica[1:]  # Exclude the first alive/dead element
+        #         xs_array = replica[2:]  # Exclude the alive/dead element and the last particle position
         #         V_tot += self.replica_tot_pot(xs_array)
 
         #     self.E_ref = V_tot / self.N
         # else:
         #     self.E_ref += (hbar / self.delta_tau) * (1 - self.N / self.N_prev)
 
+
         # alpha = (hbar / self.delta_tau)
-        alpha = 0.1
         for replica in self.replicas[:self.N]:
-            xs_array = replica[1:]  # Exclude the first alive/dead element
+            xs_array = replica[2:]  # Exclude the alive/dead element and the last particle position
             V_tot += self.replica_tot_pot(xs_array)
         V_avg = V_tot / self.N
-        self.E_ref = V_avg + alpha * (1 - self.N / self.N_prev)
-
-    def update_relative_distances(xs_array):
-        n_particles = len(xs_array) + 1
-
-        # Update the first n-2 relative distances with Gaussian random changes
-        for i in range(n_particles - 2):
-            xs_array[i] += np.random.normal(0, 1)
-
-        # Deduce the last relative distance
-        xs_array[-1] = -np.sum(xs_array[:-1])
-
-        return xs_array
+        self.E_ref = V_avg + self.alpha * (1 - self.N / self.N_prev)
 
     def recover_absolute_positions(xs_array):
         n_particles = len(xs_array) + 1
@@ -130,11 +122,10 @@ class QMC(BaseModel):
         ASSUMES that the replicas array has been sorted.
         """
         prefactor = np.sqrt(self.delta_tau)
-        for replica in self.replicas[:self.N]:
-            # Iterate over indices and values in xs_array
-            for i, x in enumerate(replica[1:]):
-                # Update the values in the replica array
-                replica[i + 1] += prefactor * np.random.normal()  # eqn 3.4
+        for replica in self.replicas[:self.N]: # walk all of the alive replicas
+            # add a random amount to the position of the last particle AND all of the relative distances between particles
+            for i, x in enumerate(replica[2:]): 
+                replica[i + 2] += prefactor * np.random.normal()  # eqn 3.4
 
     def print_replicas(self):
         for ii,replica in enumerate(self.replicas):
@@ -148,7 +139,7 @@ class QMC(BaseModel):
         dtau_over_hbar = self.delta_tau/hbar
         
         for replica in self.replicas[:self.N]:
-            xs_array = replica[1:]  # Exclude the first alive/dead element
+            xs_array = replica[2:]  # Exclude the alive/dead element and the last particle position
             W = np.exp(-dtau_over_hbar * (self.replica_tot_pot(xs_array) - self.E_ref)) # eqn 2.16
             m_n = min(int(W+np.random.uniform()), 3)
             if m_n == 0:  # Kill the replica
@@ -187,7 +178,7 @@ class QMC(BaseModel):
         # roll through all of the replicas and calculate the centroid position of each 
         centroid_array = []
         for replica in self.replicas[:self.N]:
-            xs_array = replica[1:]
+            xs_array = replica[2:]
             centroid_array.append(self.centroid(xs_array))
             
         hist_array = np.histogram(centroid_array, bins=self.bins, range=[self.xmin, self.xmax])
