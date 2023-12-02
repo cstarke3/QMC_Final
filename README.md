@@ -11,9 +11,11 @@ From the commandline, do the following:
 % cd <a dir where you want this code>
 `
 `
-% git clone git@github.com:cstarke3/QMC_Final.git
+% git clone https://github.com/cstarke3/QMC_Final.git
 `
-` cd ./QMC_Final`
+`
+cd ./QMC_Final
+`
 
 ### Create and Activate your local environment
 
