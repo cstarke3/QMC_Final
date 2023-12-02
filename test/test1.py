@@ -8,6 +8,12 @@
 # n = 3 particles, E_0 = -9.738
 # n = 4 particles, E_0 = -20.046
 
+# Yesterday in class I was showing some sample runs of a Monte Carlo simulations for the system described above. Here are some of those results, obtained using 1000 walkers/replicas:
+
+# n = 2: E_0 = -3.10634 +/- 0.0730473
+# n = 3: E_0 = -9.73432 +/- 0.114617
+# n = 4: E_0 = -20.0245 +/- 0.165882
+
 # my results
 # n=2 E_0: -3.3374750821993797
 # n=3 E_0: -10.205184223506715
