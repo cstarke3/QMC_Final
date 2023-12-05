@@ -6,62 +6,75 @@ This project implements the concepts put forth in the paper.
 
 ### Download the code
 
-From the commandline, do the following:
-`
-% cd <a dir where you want this code>
-`
-`
-% git clone https://github.com/cstarke3/QMC_Final.git
-`
-`
+From the commandline, in a directory of your choosing, do the following:
+
+```bash
+git clone https://github.com/cstarke3/QMC_Final.git
 cd ./QMC_Final
-`
+```
+
 
 ### Create and Activate your local environment
 
-To create a local environment to run this simulation, and assuming `python >= 3.11` is installed, do the following on the commandline:
+To create a local environment to run this simulation, and assuming `python >= 3.11` is installed, do the following:
+* on a **Mac/Linux machine**:
 
-`python -m venv qmc`
+```bash
+python -m venv qmc
+source qmc/bin/activate
+```
 
-To activate this environment on a Mac/Linux machine: `source qmc/bin/activate`
+* on a **Windows machine**:
 
-To activate this environment on a Windows machine: `qmc\Scripts\activate`
+```bash
+python -m venv qmc
+qmc\Scripts\activate
+```
 
 Next, install all of the required packages using the following command:  
-`pip install -r requirements.txt`
+
+```bash
+pip install -r requirements.txt
+```
 
 or upgrade, if you have already installed once: 
-`pip install --upgrade --force-reinstall -r requirements.txt`
+
+```bash
+pip install --upgrade --force-reinstall -r requirements.txt`
+```
 
 ## Running the simulation
 
-The primary controller (in MVC parlance) is `src/qmc_cli.py`, and once your environment is set up, it is invoked with
+The primary entry-point is `qmc_cli.py`, and once your environment is set up, it is invoked like this
 
-`
+```bash
 python src/qmc_cli.py
-`
+```
 
-Example: `python src/qmc_cli.py -n 3 -s 10000 -t`
+which will spit out a brief help screen. To get a more detailed help output, use the `-h` option:
 
+```bash
+python src/qmc_cli.py -h
+```
 
-options:
+To run the simulation with 1000 replicas at 100 steps for 2 particles, you would simply do:
 
-  -h               --help, show this help message and exit 
-                        
-  -n PARTICLES,     --particles PARTICLE, the number of particles to simulate (default: 2)
-                        
-  -m MIN_REPLICAS,  --min_replicas MIN_REPLICA, the minimum number of replicas to use during the simulation (default: 500)
-                        
-  -x MAX_REPLICAS,  --max_replicas MAX_REPLICA, the maximum number of replicas to use during the simulation (default: 2000)
-                        
-  -s STEPS,         --steps STEPS, the number of timesteps to use during the simulation (default: 1000)
-                        
-  -r RANDOM,        --random RANDOM, set the random seed value (default: 42)
-                        
-  -t               --trandom, set the random seed based on the current timestamp (default: varies)
-                        
-  -b BINS,          --bins, the number of spatial “boxes” (nb) for sorting the replicas during their sampling (default: 100)
-                        
-  -p,               --plot_it, plot the data (default: False)
-                        
-  -d,               --debug, plot the data (default: False)
+```bash
+python src/qmc_cli.py -n 2
+```
+
+### Other noteable args:
+```
+
+  -n PARTICLES  the number of particles to simulate (default: 2)
+  -m MIN_REPLICAS the minimum number of replicas to use during the simulation (default: 500)
+  -x MAX_REPLICAS the maximum number of replicas to use during the simulation (default: 3000)
+  -s STEPS the number of timesteps to use during the simulation (default: 100)
+  -r RANDOM set the random seed value (default: 42)
+  -t set the random seed based on the current timestamp (default: varies)
+  -p plot the data (default: False)
+  -d print out a bunch of stuff each time through the loop (default: False)
+  -a ALPHA modify the rate at which N/N_0 impacts potential calculation (default: 0.13)
+  -l loop through the algorihm for n=2-10 (default: False)
+  ```
+  
