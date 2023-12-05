@@ -24,7 +24,7 @@ mass = 1               # mass of the particle (m = 1)
 E_ref = 0              # reference energy (E_ref = 0)
 
 steps = 1000
-plot_it = False
+plot = False
 DEBUG = False
 global_alpha = 0.13
 loop = False
@@ -35,7 +35,8 @@ def run_simulation(alpha=global_alpha):
     V_0 = -4.0
     R = 2.0
     V = V_Gauss(sys, V_0, R)
-  
+
+    # print(f"V_Gauss: {V(1.0)}")
     qmc = QMC(V=V, 
               min_replicas=min_replicas, 
               max_replicas=max_replicas, 
@@ -55,15 +56,15 @@ def run_simulation(alpha=global_alpha):
         if DEBUG: print(f"step: {i}  E_ref: {qmc.E_ref:.6f}  N: {qmc.N}  Nratio: {Nratio:.5f}")
         E_refs.append(qmc.E_ref)
         N_vals.append(qmc.N)
-        _, stddev = mean_stddev(E_refs)
+        _, stddev, range_start = mean_stddev(E_refs)
 
         if early_breakout and i > 300 and abs(Nratio) < epsilon: 
             print(f" CONDITION MET @ step: {i}  E_ref: {qmc.E_ref:.6f}  N: {qmc.N}  Nratio: {Nratio:.5f}")
             break
 
-    E_0_mean, E_0_stddev = mean_stddev(E_refs)
+    E_0_mean, E_0_stddev, _ = mean_stddev(E_refs)
     print(f"n={qmc.particle_count} E_0: {E_0_mean:.4f} +/- {E_0_stddev:.4f}  N:{qmc.N} alpha: {alpha}")
-    if plot_it: 
+    if plot: 
         # hist, centroids = qmc.Binning()
         centroids = None
         plot_data(E_refs, N_vals, centroids, bins, title = f"QMC: n={qmc.particle_count}  N (final)={qmc.N}  alpha={alpha}")
@@ -101,22 +102,22 @@ Example usage:
                     # epilog='----'
                     )
 parser.add_argument('-n', '--particles',  help=f'the number of particles to simulate (default: {particles})')
-parser.add_argument('-m', '--min_replicas', help=f'the minimum number of replicas to use during the simulation (default: {min_replicas}))')
-parser.add_argument('-x', '--max_replicas', help=f'the maximum number of replicas to use during the simulation (default: {max_replicas}))')
-parser.add_argument('-s', '--steps',  help=f'the number of timesteps to use during the simulation (default: {max_steps})))')
+parser.add_argument('-m', '--min_replicas', help=f'the minimum number of replicas to use during the simulation (default: {min_replicas})')
+parser.add_argument('-x', '--max_replicas', help=f'the maximum number of replicas to use during the simulation (default: {max_replicas})')
+parser.add_argument('-s', '--steps',  help=f'the number of timesteps to use during the simulation (default: {max_steps})')
 
-parser.add_argument('-r', '--random', help=f'set the random seed value (default: {seed}))))')
-parser.add_argument('-t', '--trandom', action='store_true', help='set the random seed based on the current timestamp (default: varies))))')
+parser.add_argument('-r', '--random', help=f'set the random seed value (default: {seed})')
+parser.add_argument('-t', '--trandom', action='store_true', help='set the random seed based on the current timestamp (default: varies)')
 
-parser.add_argument('-b', '--bins', help=f'the number of spatial “boxes” (nb) for sorting the replicas during their sampling (default: {bins}))')
-parser.add_argument('-p', '--plot_it', action='store_true', help=f'plot the data (default: {plot_it}))')
-parser.add_argument('-d', '--debug', action='store_true', help=f'print out a bunch of stuff each time through the loop (default: {DEBUG}))')
-parser.add_argument('-a', '--alpha', help=f'modify the rate at which N/N_0 impacts potential calculation (default: {global_alpha}))')
+parser.add_argument('-b', '--bins', help=f'the number of spatial “boxes” (nb) for sorting the replicas during their sampling (default: {bins})')
+parser.add_argument('-p', '--plot', action='store_true', help=f'plot the data (default: {plot})')
+parser.add_argument('-d', '--debug', action='store_true', help=f'print out a bunch of stuff each time through the loop (default: {DEBUG})')
+parser.add_argument('-a', '--alpha', help=f'modify the rate at which N/N_0 impacts potential calculation (default: {global_alpha})')
 
-parser.add_argument('-l', '--loop', action='store_true', help=f'loop trhough the algorihm for n=2-10 (default: {loop}))')
+parser.add_argument('-l', '--loop', action='store_true', help=f'loop trhough the algorihm for n=2-10 (default: {loop})')
 
-parser.add_argument('-g', '--gda', action='store_true', help=f'loop through simulation across a range of alphas, to see if any gets us close to E_0 = -3.10634 +/- 0.0730 (default: {search_alpha}))')
-parser.add_argument('-e', '--early', action='store_true', help=f'early breakout(default: {early_breakout}))')
+parser.add_argument('-g', '--gda', action='store_true', help=f'loop through simulation across a range of alphas, to see if any gets us close to E_0 = -3.10634 +/- 0.0730 (default: {search_alpha})')
+parser.add_argument('-e', '--early', action='store_true', help=f'early breakout(default: {early_breakout})')
 
 
 if __name__ == "__main__":
@@ -135,9 +136,9 @@ if __name__ == "__main__":
         # print (f"args.min_replicas: {args.min_replicas}")
         min_replicas = int(args.min_replicas)
     
-    if args.plot_it is not None:
-        # print (f"args.plot_it: {args.plot_it}")
-        plot_it = bool(args.plot_it)
+    if args.plot is not None:
+        # print (f"args.plot: {args.plot}")
+        plot = bool(args.plot)
         
     if args.debug is not None:
         # print (f"args.debug: {args.debug}")

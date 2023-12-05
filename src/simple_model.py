@@ -50,14 +50,9 @@ class QMC(BaseModel):
         if self.V is None: raise ValueError("Potential function V(x) must be provided, dammit")
         np.random.seed(seed=self.seed)
 
-        rep_pos = [0.0] # tracks the position of the last particle for each replica
         xs_array = [0.0 for _ in range(self.particle_count-1)]
 
-        # sets the first min_replicas to be alive, the rest are dead
-        # self.replicas = [[True] + rep_pos + xs_array if i < self.min_replicas else [False] + rep_pos + xs_array for i in range(self.max_replicas)]
-        # self.replicas = [Replica(alive=i < self.min_replicas, last_particle_pos=0.0, xs_array=xs_array) for i in range(self.max_replicas)]
-
-        # changing the approach - replicas array now only contains live replicas (the dead are culled at the end of each step)
+        # replicas array contains live replicas (the dead are culled at the end of each step)
         self.replicas = [Replica(alive=True, last_particle_pos=0.0, xs_array=xs_array) for i in range(self.min_replicas)]
         if self.DEBUG: self.print_replicas()
         
@@ -100,7 +95,7 @@ class QMC(BaseModel):
         """ Reap all of the dead replicas by creating a new replica array using only those that are alive. """
         self.replicas = [replica for replica in self.replicas if replica.alive]
 
-    def Calculate_E_ref(self):
+    def Calculate_V_avg(self):
         """ 
         Calulates the average potential for each replicas.
         
@@ -108,23 +103,40 @@ class QMC(BaseModel):
            and then find the average potential across all replicas.
         """
         V_tot = 0.0
+        for replica in self.replicas:
+            V_tot += self.replica_tot_pot(replica.xs_array)
+        V_avg = V_tot / self.N
+        return V_avg    
+    
+    def Calculate_E_ref(self):
+        """ 
+        Calulates the reference energy of the system -- updates each step.
+        """
         
         if self.N == 0 or self.N is None:
             raise ValueError("No alive replicas found")
 
-        # for this block, we are either 
-        #    1. using 2.33 to calculate the original E_ref, and then using 2.36 to update E_ref
-        #    2. using 2.33 to calculate the original E_ref, and then using alpha instead of (hbar / self.delta_tau)
-        use_alpha = True
-        my_alpha = self.alpha if use_alpha else (hbar / self.delta_tau)
+        # to calculate E_ref, we either:
+        #    1. use eqn 2.33 E_ref = <V> for the the original E_ref, and then use 2.36 to update E_ref, OR 
+        #    2. use eqn 2.33 E_ref = <V> for the the original E_ref, and then using alpha instead of (hbar / self.delta_tau)
+        
+        
+# to calculate the next value of E_ref we can either 
+# using an updated value of V average every time, and "tune" E_ref based on the ratio between N and N_prev, or
+# calculate V_average at the very beginning and "tune" E_ref based on the ratio between N and N_target
+
         
         if self.E_ref is None: 
-            for replica in self.replicas: # iterate over all replicas
-                V_tot += self.replica_tot_pot(replica.xs_array)
-
-            self.E_ref = V_tot / self.N    # eqn 2.33
-        else:
-            self.E_ref += my_alpha * (1 - self.N / self.N_target)  # eqn 2.36
+            V_avg = self.Calculate_V_avg()
+            self.E_ref = V_avg    # eqn 2.33
+        else: 
+            use_eqn_2_35 = True # select between 2.35 and 2.36 to compute E_ref
+            if use_eqn_2_35:
+                V_avg = self.Calculate_V_avg()
+                alpha = (const.hbar / self.delta_tau)
+                self.E_ref = V_avg - self.alpha * (1 - self.N / self.N_prev) # eqn 2.35
+            else:
+                self.E_ref += self.alpha * (1 - self.N / self.N_target)  # eqn 2.36
 
     
     def Walk(self):
@@ -133,7 +145,7 @@ class QMC(BaseModel):
         """
         prefactor = np.sqrt(self.delta_tau)
         for replica in self.replicas: # iterate over all replicas
-            # add a random amount to the position of the last particle AND all of the relative distances between particles
+            # add a random amount to the relative distances between particles
             for i, x in enumerate(replica.xs_array): 
                 replica.xs_array[i] += prefactor * np.random.normal()
 
@@ -149,7 +161,7 @@ class QMC(BaseModel):
         """
         dtau_over_hbar = self.delta_tau/hbar
         
-        for i in range(len(self.replicas)): # iterate over all replicas
+        for i in range(self.N): # iterate over all replicas
             replica = self.replicas[i]
 #           W = np.exp(-dtau_over_hbar * (self.replica_tot_pot(xs_array) - self.E_ref)) # eqn 2.16
             W = 1 - ((self.replica_tot_pot(replica.xs_array) - self.E_ref) * dtau_over_hbar) # eqn 2.29
@@ -191,7 +203,6 @@ class QMC(BaseModel):
         self.Walk()
         self.Calculate_E_ref()
         self.Branch()
-        # self.Sort()
         self.CullDeadReplicas()
         self.CountReplicas()
         if self.DEBUG: print("-"*80)

@@ -8,7 +8,7 @@ def mean(lst, pct_val = 0.3):
     mean_val = sum(lst[-r:]) / r
     return mean_val
 
-def mean_stddev(lst, pct_val = 0.5):
+def mean_stddev(lst, pct_val = 0.1):
     start_index = int(len(lst) * (1 - pct_val))
 
     # Slice the array to get the last X percent
@@ -17,17 +17,23 @@ def mean_stddev(lst, pct_val = 0.5):
     # Compute mean and standard deviation
     mean = np.mean(last_percent_data)
     stddev = np.std(last_percent_data)
-    return mean, stddev
+    return mean, stddev, start_index
     
 def plot_data(ys, n_vals, hist_data, bins, title="QMC Simulation"):
     """ Plots the data with an inset histogram. """
 
-    mean_val, stddev = mean_stddev(ys)
+    mean_val, stddev, range_start = mean_stddev(ys)
+    range_stop = len(ys)
 
-    xs = range(len(ys))
+    xs = range(range_stop)
 
     # Create a new figure for the main plot
     plt.figure()
+    
+    min_val = min(ys)
+    max_val = max(ys)
+    mid_val = (max_val - min_val) / 2   + min_val
+    # print(f"min_val: {min_val}  max_val: {max_val}  mid_val: {mid_val}")
 
 
     # Plot x vs y
@@ -35,9 +41,10 @@ def plot_data(ys, n_vals, hist_data, bins, title="QMC Simulation"):
     plt.xlabel('Time Step')
     plt.ylabel('E_ref')
     plt.title(title, fontsize=16)
-    plt.hlines(mean_val, 0, len(ys), colors='r', linestyles='solid', label='E_0')
+    plt.hlines(mean_val, xmin = 0, xmax=range_stop, colors='r', linestyles='solid', label='E_0')
+    plt.fill_between(xs[range_start:range_stop], mean_val - stddev, mean_val + stddev, color='b', alpha=0.3)
     text_x_position = 0.95 * len(xs)  # X position near the right edge of the plot
-    text_y_position = mean_val + 0.03  # Y position for the text just above the line
+    text_y_position = mid_val + 0.03  # Y position for the text just above the line
     plt.text(text_x_position, text_y_position, 
              f"E_0: {mean_val:.3f} +/- {stddev:.3f}", 
              fontsize=14, color='black', horizontalalignment='right',
