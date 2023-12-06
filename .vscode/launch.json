@@ -10,8 +10,10 @@
             "request": "launch",
             "program": "${workspaceFolder}/src/qmc_cli.py",
             "console": "integratedTerminal",
-            "justMyCode": true,
-            "args": ["-n", "2", "-m", "5", "-s", "2"]
+            "justMyCode": false,
+            // "args": ["-n", "2", "-m", "5", "-s", "2"]
+            "args": ["-V", "2"]
+
         },
         {
             "name": "Python: Current File",

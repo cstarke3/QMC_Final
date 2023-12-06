@@ -1,14 +1,14 @@
 import matplotlib.pyplot as plt
 import numpy as np
 
-def mean(lst, pct_val = 0.3):
+def mean(lst, pct_val = 0.5):
     
     # mean_val = mean_last_r(ys, int(len(ys)*pct_val)) # get the mean using the last 10% of the data
     r = int(len(lst)*pct_val)
     mean_val = sum(lst[-r:]) / r
     return mean_val
 
-def mean_stddev(lst, pct_val = 0.1):
+def mean_stddev(lst, pct_val = 0.5):
     start_index = int(len(lst) * (1 - pct_val))
 
     # Slice the array to get the last X percent

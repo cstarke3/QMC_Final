@@ -30,6 +30,7 @@ global_alpha = 0.13
 loop = False
 search_alpha = False
 early_breakout = False
+potential = None
 
 def run_simulation(alpha=global_alpha):
     V_0 = -4.0
@@ -118,6 +119,7 @@ parser.add_argument('-l', '--loop', action='store_true', help=f'loop trhough the
 
 parser.add_argument('-g', '--gda', action='store_true', help=f'loop through simulation across a range of alphas, to see if any gets us close to E_0 = -3.10634 +/- 0.0730 (default: {search_alpha})')
 parser.add_argument('-e', '--early', action='store_true', help=f'early breakout(default: {early_breakout})')
+parser.add_argument('-V', '--potential', help=f'allow for user to input their own potential function. Must resolve to V(x) (default: {potential})')
 
 
 if __name__ == "__main__":
@@ -168,6 +170,27 @@ if __name__ == "__main__":
         early_breakout = bool(args.early)
         # print (f"args.early: {args.early}")
         
+    if args.potential is not None:
+        # potential = args.potential
+#         potential = """
+# def V(r, R, V0):
+#     R2 = R**2
+#     return V0 * np.exp(-r**2 / R2)
+# """
+#     V_0 = -4.0
+#     R = 2.0
+#     # V = V_Gauss(sys, V_0, R)
+#     V = eval(potential)
+#     V(0, R, V_0)
+        # my_code = 'print("hello world")'
+        my_code = """
+def V(r, R, V0):
+    R2 = R**2
+    return V0 * np.exp(-r**2 / R2)
+"""
+        test = eval(my_code)
+        print(f"test: {test}")
+
     if loop: 
         for i in range(2, 7):
             particles = i
