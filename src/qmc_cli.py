@@ -31,6 +31,7 @@ loop = False
 search_alpha = False
 early_breakout = False
 potential = None
+samp_pct = 0.1
 
 def run_simulation(alpha=global_alpha):
     V_0 = -4.0
@@ -57,18 +58,18 @@ def run_simulation(alpha=global_alpha):
         if DEBUG: print(f"step: {i}  E_ref: {qmc.E_ref:.6f}  N: {qmc.N}  Nratio: {Nratio:.5f}")
         E_refs.append(qmc.E_ref)
         N_vals.append(qmc.N)
-        _, stddev, range_start = mean_stddev(E_refs)
+        _, stddev, range_start = mean_stddev(E_refs, samp_pct)
 
         if early_breakout and i > 300 and abs(Nratio) < epsilon: 
             print(f" CONDITION MET @ step: {i}  E_ref: {qmc.E_ref:.6f}  N: {qmc.N}  Nratio: {Nratio:.5f}")
             break
 
-    E_0_mean, E_0_stddev, _ = mean_stddev(E_refs)
+    E_0_mean, E_0_stddev, _ = mean_stddev(E_refs, samp_pct)
     print(f"n={qmc.particle_count} E_0: {E_0_mean:.4f} +/- {E_0_stddev:.4f}  N:{qmc.N} alpha: {alpha}")
     if plot: 
         # hist, centroids = qmc.Binning()
         centroids = None
-        plot_data(E_refs, N_vals, centroids, bins, title = f"QMC: n={qmc.particle_count}  N (final)={qmc.N}  alpha={alpha}")
+        plot_data(E_refs, N_vals, centroids, bins, title = f"QMC: n={qmc.particle_count}  N (final)={qmc.N}  alpha={alpha}",samp_pct=samp_pct)
         
     return E_0_mean, E_0_stddev, qmc.N
 
@@ -104,7 +105,6 @@ Example usage:
                     )
 parser.add_argument('-n', '--particles',  help=f'the number of particles to simulate (default: {particles})')
 parser.add_argument('-m', '--min_replicas', help=f'the minimum number of replicas to use during the simulation (default: {min_replicas})')
-parser.add_argument('-x', '--max_replicas', help=f'the maximum number of replicas to use during the simulation (default: {max_replicas})')
 parser.add_argument('-s', '--steps',  help=f'the number of timesteps to use during the simulation (default: {max_steps})')
 
 parser.add_argument('-r', '--random', help=f'set the random seed value (default: {seed})')
@@ -119,8 +119,8 @@ parser.add_argument('-l', '--loop', action='store_true', help=f'loop trhough the
 
 parser.add_argument('-g', '--gda', action='store_true', help=f'loop through simulation across a range of alphas, to see if any gets us close to E_0 = -3.10634 +/- 0.0730 (default: {search_alpha})')
 parser.add_argument('-e', '--early', action='store_true', help=f'early breakout(default: {early_breakout})')
-parser.add_argument('-V', '--potential', help=f'allow for user to input their own potential function. Must resolve to V(x) (default: {potential})')
 
+parser.add_argument('-x', '--samp_pct', help=f'sample percentage for mean_stddev(default: {samp_pct})')
 
 if __name__ == "__main__":
 
@@ -170,26 +170,9 @@ if __name__ == "__main__":
         early_breakout = bool(args.early)
         # print (f"args.early: {args.early}")
         
-    if args.potential is not None:
-        # potential = args.potential
-#         potential = """
-# def V(r, R, V0):
-#     R2 = R**2
-#     return V0 * np.exp(-r**2 / R2)
-# """
-#     V_0 = -4.0
-#     R = 2.0
-#     # V = V_Gauss(sys, V_0, R)
-#     V = eval(potential)
-#     V(0, R, V_0)
-        # my_code = 'print("hello world")'
-        my_code = """
-def V(r, R, V0):
-    R2 = R**2
-    return V0 * np.exp(-r**2 / R2)
-"""
-        test = eval(my_code)
-        print(f"test: {test}")
+    if args.samp_pct is not None:
+        # print (f"args.alpha: {args.alpha}")
+        samp_pct = float(args.samp_pct)
 
     if loop: 
         for i in range(2, 7):

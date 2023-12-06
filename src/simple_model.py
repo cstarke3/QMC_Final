@@ -14,7 +14,6 @@ docs = """
 class Replica(BaseModel):
     alive: bool = False
     xs_array: conlist(float, min_length=0) = []
-    xs_bumps: conlist(float, min_length=0) = []
     def __str__(self):
         return f"alive: {self.alive}, xs_array: {self.xs_array}"
     def __repr__(self):
@@ -55,8 +54,7 @@ class QMC(BaseModel):
         # replicas array contains live replicas (the dead are culled at the end of each step)
         self.replicas = [Replica(alive=True, 
                                  last_particle_pos=0.0, 
-                                 xs_array=xs_array,
-                                 xs_bumps=xs_array) for i in range(self.min_replicas)]
+                                 xs_array=xs_array) for i in range(self.min_replicas)]
         if self.DEBUG: self.print_replicas()
         
         # making sure that our initial count is equal to the minimum number of replicas
@@ -111,29 +109,6 @@ class QMC(BaseModel):
         V_avg = V_tot / self.N
         return V_avg    
     
-    def Calculate_KineticEnergy(self):
-        """ Charlie made me do it! """        
-        # for replica in self.replicas:
-        #     xs_bumps = replica.xs_bumps
-        #     KE = 0.0
-        #     for i in range(len(xs_bumps)):
-        #         KE += .5 * self.mass * (xs_bumps[i]/self.delta_tau) **2
-        #     KE_tot += KE
-            
-        xs_tot = 0.0
-        delta_tot = [0.0 for _ in range(self.particle_count-1)]
-
-        for replica in self.replicas:
-            xs_bumps = replica.xs_bumps
-            for ii in range(len(delta_tot)):
-                delta_tot[ii] += xs_bumps[ii]
-        
-        delta_tot = np.multiply(delta_tot,  (1 / self.N))
-        KE_tot = 0.0
-        for ii in range(len(delta_tot)):
-            KE_tot += .5 * self.mass * (delta_tot[ii]/self.delta_tau) **2
-
-        return KE_tot 
 
     def Calculate_E_ref(self):
         """ 
@@ -165,7 +140,6 @@ class QMC(BaseModel):
             else:
                 self.E_ref += self.alpha * (1 - self.N / self.N_target)  # eqn 2.36
 
-            self.E_ref += self.Calculate_KineticEnergy()
     
     def Walk(self):
         """ 
@@ -175,8 +149,7 @@ class QMC(BaseModel):
         for replica in self.replicas: # iterate over all replicas
             # add a random amount to the relative distances between particles
             for i, x in enumerate(replica.xs_array): 
-                replica.xs_bumps[i] = prefactor * np.random.normal()
-                replica.xs_array[i] += replica.xs_bumps[i]
+                replica.xs_array[i] += prefactor * np.random.normal()
 
     def print_replicas(self):
         for ii,replica in enumerate(self.replicas):
@@ -206,8 +179,7 @@ class QMC(BaseModel):
                     if self.DEBUG: print(f" Replica {i} - Duplicate {count_copies} times  W: {W}  m_n: {m_n}  E_ref: {self.E_ref:.4f}")
                     # Create a new replica and add it to the list
                     new_replica = Replica(alive=replica.alive, 
-                                          xs_array=replica.xs_array.copy(),
-                                          xs_bumps=replica.xs_bumps.copy())
+                                          xs_array=replica.xs_array.copy())
                     self.replicas.append(new_replica)
                     count_copies -= 1
                         

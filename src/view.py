@@ -19,10 +19,10 @@ def mean_stddev(lst, pct_val = 0.5):
     stddev = np.std(last_percent_data)
     return mean, stddev, start_index
     
-def plot_data(ys, n_vals, hist_data, bins, title="QMC Simulation"):
+def plot_data(ys, n_vals, hist_data, bins, title="QMC Simulation", samp_pct=0.5):
     """ Plots the data with an inset histogram. """
 
-    mean_val, stddev, range_start = mean_stddev(ys)
+    mean_val, stddev, range_start = mean_stddev(ys, pct_val=samp_pct)
     range_stop = len(ys)
 
     xs = range(range_stop)
@@ -37,12 +37,13 @@ def plot_data(ys, n_vals, hist_data, bins, title="QMC Simulation"):
 
 
     # Plot x vs y
+    sfact = 1.1
     plt.plot(xs, ys, label="E_ref")
     plt.xlabel('Time Step')
     plt.ylabel('E_ref')
     plt.title(title, fontsize=16)
     plt.hlines(mean_val, xmin = 0, xmax=range_stop, colors='r', linestyles='solid', label='E_0')
-    plt.fill_between(xs[range_start:range_stop], mean_val - stddev, mean_val + stddev, color='b', alpha=0.3)
+    plt.fill_between(xs[range_start:range_stop], mean_val - sfact*stddev, mean_val + sfact*stddev, color='b', alpha=0.3)
     text_x_position = 0.95 * len(xs)  # X position near the right edge of the plot
     text_y_position = mid_val + 0.03  # Y position for the text just above the line
     plt.text(text_x_position, text_y_position, 
