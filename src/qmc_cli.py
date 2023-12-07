@@ -115,10 +115,10 @@ parser.add_argument('-p', '--plot', action='store_true', help=f'plot the data (d
 parser.add_argument('-d', '--debug', action='store_true', help=f'print out a bunch of stuff each time through the loop (default: {DEBUG})')
 parser.add_argument('-a', '--alpha', help=f'modify the rate at which N/N_0 impacts potential calculation (default: {global_alpha})')
 
-parser.add_argument('-l', '--loop', help=f'loop trhough the algorihm for n=2-10 (default: {loop})')
+parser.add_argument('-l', '--loop', help=f'loop through the algorihm for n=2-LOOP (default: {loop})')
 
-parser.add_argument('-g', '--gda', action='store_true', help=f'loop through simulation across a range of alphas, to see if any gets us close to E_0 = -3.10634 +/- 0.0730 (default: {search_alpha})')
-parser.add_argument('-e', '--early', action='store_true', help=f'early breakout(default: {early_breakout})')
+parser.add_argument('-g', '--gda', action='store_true', help=f'run the simulation across a range of alphas, to see if any gets us close to E_0 = -3.10634 +/- 0.0730 (default: {search_alpha})')
+parser.add_argument('-e', '--early', action='store_true', help=f'allows for early termination based on N/N ratio(default: {early_breakout})')
 
 parser.add_argument('-x', '--samp_pct', help=f'sample percentage for mean_stddev(default: {samp_pct})')
 
