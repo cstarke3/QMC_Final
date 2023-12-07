@@ -98,7 +98,7 @@ This script is a command line interpreter to run the QMC/DMC algorithm as part o
 
 Example usage:
     python qmc_cli.py -h            ::: print the help message and exit
-    python qmc_cli.py -n 6
+    python qmc_cli.py -n 3          ::: run the simulation for 3 particles
 
 """, 
                     # epilog='----'
