@@ -27,7 +27,7 @@ steps = 1000
 plot = False
 DEBUG = False
 global_alpha = 0.13
-loop = False
+loop = None
 search_alpha = False
 early_breakout = False
 potential = None
@@ -115,7 +115,7 @@ parser.add_argument('-p', '--plot', action='store_true', help=f'plot the data (d
 parser.add_argument('-d', '--debug', action='store_true', help=f'print out a bunch of stuff each time through the loop (default: {DEBUG})')
 parser.add_argument('-a', '--alpha', help=f'modify the rate at which N/N_0 impacts potential calculation (default: {global_alpha})')
 
-parser.add_argument('-l', '--loop', action='store_true', help=f'loop trhough the algorihm for n=2-10 (default: {loop})')
+parser.add_argument('-l', '--loop', help=f'loop trhough the algorihm for n=2-10 (default: {loop})')
 
 parser.add_argument('-g', '--gda', action='store_true', help=f'loop through simulation across a range of alphas, to see if any gets us close to E_0 = -3.10634 +/- 0.0730 (default: {search_alpha})')
 parser.add_argument('-e', '--early', action='store_true', help=f'early breakout(default: {early_breakout})')
@@ -158,9 +158,9 @@ if __name__ == "__main__":
         # print (f"args.alpha: {args.alpha}")
         global_alpha = float(args.alpha)
        
-    if args.loop is False:
+    if args.loop is not None:
         # print (f"args.loop: {args.loop}")
-        loop = bool(args.loop) 
+        loop = int(args.loop) 
         
     if args.gda:
         search_alpha = bool(args.gda)
@@ -174,8 +174,8 @@ if __name__ == "__main__":
         # print (f"args.alpha: {args.alpha}")
         samp_pct = float(args.samp_pct)
 
-    if loop: 
-        for i in range(2, 7):
+    if loop is not None: 
+        for i in range(2, loop+1):
             particles = i
             run_simulation(alpha=global_alpha)
     elif search_alpha:
