@@ -1,142 +1,212 @@
 import numpy as np
 import scipy.constants as const
-from pydantic import BaseModel
+from pydantic import BaseModel, conlist
+from typing import List, Union, Callable, Any, Optional
 
 hbar = 1
-
+docs = """
+11/30/2023 Changes (mostly for readability):
+   * Added Replica class that keeps track of the state of each replica
+   * Removed fixed array of replicas, now has initial value of min_replicas (target replicas)
+   * Added N_target to be explicit about
+   * Cull dead replicas from the array at the end of each step
+"""
+class Replica(BaseModel):
+    alive: bool = False
+    xs_array: conlist(float, min_length=0) = []
+    def __str__(self):
+        return f"alive: {self.alive}, xs_array: {self.xs_array}"
+    def __repr__(self):
+        return f"alive: {self.alive}, xs_array: {self.xs_array}"
+    
 class QMC(BaseModel):
-    V: float               # potential function V(x) associated with the specific quantum system we are modeling
-    particles: int         # number of particles to simulate
-    dim: int = 1           # number of dimensions (D=1 for this exercise)
-    min_replicas: int = 500 # minimum number of replicas
-    max_replicas: int = 2000 # maximum number of replicas
-    max_steps: int = 1000 # maximum number of time steps to run the simulation (τ0 = 1000)
-    delta_t: float = 0.1 # time step size (Δτ = 0.1)
-    xmin: float = -20 # minimum value of the spatial coordinate (xmin = −20)
-    xmax: float = 20 # maximum value of the spatial coordinate (xmax = 20)
-    bins: int = 200 # number of spatial bins for sorting the replicas (only used during 'Counting' to plot the ground state wave function)
-    seed: int = 42 # seed value for the random number generators (for repeatability)
-    mass: float = 1 # mass of the particle (m = 1)
+    V: Callable[[float], float] = None     # potential function V(x) associated with the specific quantum system we are modeling
+    particle_count: int = 2                # number of particles to simulate
+    dim: int = 1                   # number of dimensions (number of spatial dimensions = 1 x number of particles)
+    min_replicas: int = 1000       # minimum number of replicas
+    max_replicas: int = 20000      # maximum number of replicas
+    delta_tau: float = 0.1         # time step size (Δτ = 0.1)
+    xmin: float = -20              # minimum value of the spatial coordinate (xmin = −20)
+    xmax: float = 20               # maximum value of the spatial coordinate (xmax = 20)
+    bins: int = 200                # number of spatial bins for sorting the replicas (only used during 'Counting' to plot the ground state wave function)
+    seed: int = 42                 # seed value for the random number generators (for repeatability)
+    mass: float = 1                # mass of the particle (m = 1)
+    E_ref: float = None            # reference energy (E_ref = 0)
+       
+    DEBUG: bool = False            # debug flag
+    # replicas: Optional[List[List[Union[bool, float]]]] = None
+    replicas: List[Replica] = None
+    
+    N: int = 500                   # the count of ALIVE replicas; initially equal to min_replicas
+    N_prev: int = 500              # the count of ALIVE replicas from the previous step
+    N_target: int = 500            # the target number of replicas (initially equal to min_replicas)
+    alpha: float = 0.2             # Used in our modified E_ref calculation
 
-    self.replicas = dict()
-    self.Energy = []
-    self.total_count = [min_replicas*particles]
-    self.count = np.zeros(particles)
+    def __init__(self, **data):
+        """ initialize the simulation based on input values (things are implicitly set via the super class __init__)"""
+        super().__init__(**data)  # Call the super class __init__
 
-    def initialize(self, particles):
-        """ Initialize the simulation. """
-        partial_Energy = []
+        if self.V is None: raise ValueError("Potential function V(x) must be provided, dammit")
+        np.random.seed(seed=self.seed)
 
-        for i in range(self.particles): # Create replica arrays assigned to individual particles
-            self.replicas[i] = np.zeros((2, self._max_replicas))
-            self.replicas[i][1,0:self._min_replicas] = 1
+        xs_array = [0.0 for _ in range(self.particle_count-1)]
 
-        for i in range(self.particles):
-            self.count[i] = sum(self.replicas[i][1,:])
+        # replicas array contains live replicas (the dead are culled at the end of each step)
+        self.replicas = [Replica(alive=True, 
+                                 last_particle_pos=0.0, 
+                                 xs_array=xs_array) for i in range(self.min_replicas)]
+        if self.DEBUG: self.print_replicas()
+        
+        # making sure that our initial count is equal to the minimum number of replicas
+        self.N = self.min_replicas # initially equal to min_replicas
+        self.N_prev = self.min_replicas 
+        self.N_target = self.min_replicas # let's do this once and hold onto the initial value forever (don't update down below)
+            
+        # The initial value of the reference energy E_ref is the potential energy at the initial position of the replicas.
+        self.Calculate_E_ref()
+    
+    def replica_tot_pot(self, xs_array):
+        """ 
+        Calculates the total potential energy of the system for a replica.
+        The xs_array contains the relative distances between the particles.
+        """
+        if self.particle_count < 2: raise ValueError("There should be at least 2 particles")
 
-        for i in range(self.particles): # Finds the Energy from Eq, 2.32 and 2.33
-            partial_Energy.append(self.Average_Potential(i))
+        V_tot = 0.0
 
-        self.Energy.append(np.sum(partial_Energy))
+        # LOOP1: Calculate potential for directly stored relative distances
+        for x in xs_array: V_tot += self.V(x)
 
+        # LOOP2: Calculate potential for 'derived relative distances'
+        for i in range(self.particle_count-1):
+            for j in range(i+1, self.particle_count-1):
+                # Derived distances calculated using differences between distances in xs_array
+                derived_distance = xs_array[i] - xs_array[j]
+                V_tot += self.V(derived_distance)
 
-    def Average_Potential(self, i): 
-        """ Calulates the average potential for one set of replicas from """
-        sum = 0
-        for k in range(int(self.count[i])): #I might be indexing wrong here, might be count-1; Could also switch this to N_max and not have to do a sort function, right now we need one though
-            sum += self._V(self.replicas[i][0, k])
-        return (1/self.count[i])*sum
+        return V_tot
+    
+    def CountReplicas(self):
+        """ NOTE: RUN THIS AFTER CullDeadReplicas .... Counts the number of alive replicas. """
+        self.N_prev = self.N    # Save the previous count
+        self.N = len(self.replicas) # simple count of the number of replicas (which are all alive)
+        if self.DEBUG: print(f"CountReplicas: N: {self.N}  N_prev: {self.N_prev}  N_target: {self.N_target}")
+        
+    def CullDeadReplicas(self):
+        """ Reap all of the dead replicas by creating a new replica array using only those that are alive. """
+        self.replicas = [replica for replica in self.replicas if replica.alive]
 
-    def Sort(self, i): 
-        """ Sorts live replicas to the front of the array"""
-        for k in range(int(self.count[i])): #sets dead replicas postions to 0
-            if self.replicas[i][1,k] == 0:
-                self.replicas[i][0,k] = 0
+    def Calculate_V_avg(self):
+        """ 
+        Calulates the average potential for each replicas.
+        
+        First calculate the total potential for each replica, 
+           and then find the average potential across all replicas.
+        """
+        V_tot = 0.0
+        for replica in self.replicas:
+            V_tot += self.replica_tot_pot(replica.xs_array)
+        V_avg = V_tot / self.N
+        return V_avg    
+    
 
-        transposed_array = list(zip(*self.replicas[i]))
-        def custom_sort(item):
-          return item[1]
+    def Calculate_E_ref(self):
+        """ 
+        Calulates the reference energy of the system -- updates each step.
+        """
+        
+        if self.N == 0 or self.N is None:
+            raise ValueError("No alive replicas found")
 
-        sorted_transposed_array = sorted(transposed_array, key=custom_sort)
-        dummy_array = list(zip(*sorted_transposed_array))
-        final_array = [dummy_array[0][::-1], dummy_array[1][::-1]]
+        # to calculate E_ref, we either:
+        #    1. use eqn 2.33 E_ref = <V> for the the original E_ref, and then use 2.36 to update E_ref, OR 
+        #    2. use eqn 2.33 E_ref = <V> for the the original E_ref, and then using alpha instead of (hbar / self.delta_tau)
+        
+        
+# to calculate the next value of E_ref we can either 
+# using an updated value of V average every time, and "tune" E_ref based on the ratio between N and N_prev, or
+# calculate V_average at the very beginning and "tune" E_ref based on the ratio between N and N_target
 
-        for k in range(self._max_replicas):
-          self.replicas[i][0,k] = final_array[0][k]
-          self.replicas[i][1,k] = final_array[1][k]#sorts in descending order to group live replicas to the front of the array
+        
+        if self.E_ref is None: 
+            V_avg = self.Calculate_V_avg()
+            self.E_ref = V_avg    # eqn 2.33
+        else: 
+            use_eqn_2_35 = True # select between 2.35 and 2.36 to compute E_ref
+            if use_eqn_2_35:
+                V_avg = self.Calculate_V_avg()
+                alpha = (const.hbar / self.delta_tau)
+                self.E_ref = V_avg - self.alpha * (1 - self.N / self.N_prev) # eqn 2.35
+            else:
+                self.E_ref += self.alpha * (1 - self.N / self.N_target)  # eqn 2.36
 
+    
+    def Walk(self):
+        """ 
+        This walks the relative positions between the particles for all replicas. 
+        """
+        prefactor = np.sqrt(self.delta_tau)
+        for replica in self.replicas: # iterate over all replicas
+            # add a random amount to the relative distances between particles
+            for i, x in enumerate(replica.xs_array): 
+                replica.xs_array[i] += prefactor * np.random.normal()
 
-    def Count_func(self): 
-        """ Counts the number of alive particles in the replica set associated with a particular particle """
-        for k in range(self.particles):
-          self.count[k] = sum(self.replicas[k][1,:])
+    def print_replicas(self):
+        for ii,replica in enumerate(self.replicas):
+            print(f"replica[{ii}]: {replica}")
+                
+                        
+    def Branch(self):
+        """ 
+        This is the Birth/Death decision branch for each replica. 
+        m_n = min[W(x), u_n]
+        """
+        dtau_over_hbar = self.delta_tau/hbar
+        
+        for i in range(self.N): # iterate over all replicas
+            replica = self.replicas[i]
+#           W = np.exp(-dtau_over_hbar * (self.replica_tot_pot(xs_array) - self.E_ref)) # eqn 2.16
+            W = 1 - ((self.replica_tot_pot(replica.xs_array) - self.E_ref) * dtau_over_hbar) # eqn 2.29
+            
+            m_n = min(int(W + np.random.uniform()), 3)
+            if m_n == 0:  # Kill the replica
+                if self.DEBUG: print(f" Killing replica {i}  W: {W}  m_n: {m_n}  E_ref: {self.E_ref:.4f}")
+                replica.alive = False
 
-
-
-    def Walk(self, i): 
-        """ Diffusion step: Walks every replica associated with particle i according to Eq. 2.30"""
-        for k in range(int(self.count[i])):
-            self.replicas[i][0,k] = self.replicas[i][0,k] + np.sqrt(self._delta_t)*np.random.randn()
-
-    def Branch(self, i): 
-        """ The Birth/Death process - conducts the branching of the replicas"""
-        Zed = 0
-        Two = 0
-        Three = 0
-        index = 1
-        for k in range(int(self.count[i])):
-            W = 1 - ((self._V(self.replicas[i][0,k]) - self.Energy[-1]/self.hbar))*self._delta_t
-            W = int(W + np.random.uniform())
-            m = min(W, 3)
-            if m == 0:
-                """ kill the replica """
-                self.replicas[i][1, k] = 0
-                self.replicas[i][0, k] = 0
-                Zed += 1
-            elif m == 2:
-                """ create 1 replica with the same position as the parent replica """
-                self.replicas[i][1, int(self.count[i]+index)] = 1
-                self.replicas[i][0, int(self.count[i]+index)] = self.replicas[i][0,k]
-                index += 1
-                Two += 1
-            elif m == 3:
-                """ create 2 replicas with the same position as the parent replica"""
-                self.replicas[i][1, int(self.count[i]+index)] = 1
-                self.replicas[i][0, int(self.count[i]+index)] = self.replicas[i][0,k]
-                self.replicas[i][1, int(self.count[i]+index+1)] = 1
-                self.replicas[i][0, int(self.count[i]+index+1)] = self.replicas[i][0,k]
-                index += 2
-                Three += 1
-        #print(Zed, Two, Three)
-        #print(Two - Zed)
-
-    def Energy_Step(self, i): #finds the next energy value based on the previous energy value
-        self.total_count.append(np.sum(self.count))
-        self.Energy.append(self.Energy[i-1] + (self.hbar/self._delta_t)*(1-(self.total_count[i]/self.total_count[i-1])))
-        print(self.Energy[-1], self.total_count[-1])
-
-    def Test(self, i): #only run this if i is greater than a set number, 10 maybe?
-        flag = 0
-        sum = 0
-        for k in range(10):
-            sum += np.absolute(self.total_count[i] - self.total_count[k]) #Sum the count differences for the current count compared to the last 9
-        avg = sum/10 #Average the count difference
-        if avg <= 5: #5 here is the tolerance, not sure what a good value is or if there is a just a better way in general to run this test
-            flag = 1
-        return flag
-
-    def Ground_State_Energy(self):
-        self.initialize(self.particles)
-        flag = 0
-        if flag == 0:
-            for t in range(1, self._max_steps):
-              for k in range(self.particles):
-                if t > 10:
-                  flag = self.Test(k)
-                self.Walk(k)
-                self.Branch(k)
-                self.Count_func()
-                self.Sort(k)
-              self.Energy_Step(t)
-
-        return self.Energy[-1], self.Energy
+            else:  # For m_n == 2 or 3, replicate the current replica
+                count_copies = m_n - 1  # Number of copies to make
+                while count_copies > 0:
+                    if self.DEBUG: print(f" Replica {i} - Duplicate {count_copies} times  W: {W}  m_n: {m_n}  E_ref: {self.E_ref:.4f}")
+                    # Create a new replica and add it to the list
+                    new_replica = Replica(alive=replica.alive, 
+                                          xs_array=replica.xs_array.copy())
+                    self.replicas.append(new_replica)
+                    count_copies -= 1
+                        
+                if count_copies > 0:
+                    raise ValueError("Not enough dead replicas to make copies")
+        
+    def Binning(self):
+        """ 
+        Divides the range [x_min,x_max] into bin_count equally sized bins. 
+        For each replica, we compute the average position of this replica. 
+        
+        This is to be done after the system has stabilized. 
+        """
+        # roll through all of the replicas and calculate the centroid position of each 
+        centroid_array = []
+        for replica in self.replicas: # iterate over all replicas
+            centroid_array.append(self.centroid(replica.xs_array))
+            
+        hist_array = np.histogram(centroid_array, bins=self.bins, range=[self.xmin, self.xmax])
+        return hist_array, centroid_array
+    
+    def step(self):
+        """ Steps the simulation forward 1 delta-t step and returns <V> and N. """
+        self.Walk()
+        self.Calculate_E_ref()
+        self.Branch()
+        self.CullDeadReplicas()
+        self.CountReplicas()
+        if self.DEBUG: print("-"*80)
+        # nothing is returned, but class variables have been updated

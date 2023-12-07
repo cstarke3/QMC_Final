@@ -1,7 +1,7 @@
 # primary entry-point to run simulations.
 # will handle options passed in from the command line
 
-from simple_model import QMC
+from model import QMC
 from view import plot_data, mean, plot_histogram, mean_stddev, plot_energy_vs_alpha
 from utils.potential import V_Gauss
 import argparse
