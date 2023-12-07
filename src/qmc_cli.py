@@ -65,7 +65,7 @@ def run_simulation(alpha=global_alpha):
             break
 
     E_0_mean, E_0_stddev, _ = mean_stddev(E_refs, samp_pct)
-    print(f"n={qmc.particle_count} E_0: {E_0_mean:.4f} +/- {E_0_stddev:.4f}  N:{qmc.N} alpha: {alpha}")
+    print(f"n={qmc.particle_count} E_0: {E_0_mean:.4f} +/- {E_0_stddev:.4f}  N:{qmc.N} ")
     if plot: 
         # hist, centroids = qmc.Binning()
         centroids = None
